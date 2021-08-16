@@ -1,0 +1,11 @@
+name: LukeSeen
+main: com.github.fluffycop.seen.SeenPlugin
+author: Fluffycop
+version: 1.0
+api-version: 1.17
+permissions:
+  lukeseen.seen:
+    default: true
+commands:
+  seen:
+    permission: lukeseen.seen
