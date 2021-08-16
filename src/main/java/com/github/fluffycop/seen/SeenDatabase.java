@@ -29,15 +29,24 @@ public class SeenDatabase {
     public SeenDatabase(@NonNull SeenPlugin plugin) {
         this.plugin = plugin;
         pool = Executors.newFixedThreadPool(SeenConfig.get().getThreadPoolSize());
-        HikariConfig cfg = new HikariConfig();
-        cfg.setJdbcUrl(
-                "jdbc:mysql://" + SeenConfig.get().getInfo().getAddress() + ":" + SeenConfig.get().getInfo().getPort() + "/" + SeenConfig.get().getInfo().getDatabase()
-        );
-        cfg.setUsername(SeenConfig.get().getInfo().getUsername());
-        cfg.setPassword(SeenConfig.get().getInfo().getPassword());
-        cfg.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        ds = new HikariDataSource(cfg);
+        ds = new HikariDataSource(setupConfig());
         this.setupTables();
+    }
+
+    @NonNull
+    private HikariConfig setupConfig() {
+        HikariConfig config = new HikariConfig();
+        config.setPoolName("Lukeseen Connection Pool-1");
+        config.setJdbcUrl(
+                "jdbc:mariadb://" + SeenConfig.get().getInfo().getAddress() + ":" + SeenConfig.get().getInfo().getPort() + "/" + SeenConfig.get().getInfo().getDatabase()
+        );
+        config.setUsername(SeenConfig.get().getInfo().getUsername());
+        config.setPassword(SeenConfig.get().getInfo().getPassword());
+        config.setDriverClassName("org.mariadb.jdbc.Driver");
+        config.setConnectionTestQuery("SELECT 1;");
+        config.addDataSourceProperty("useLegacyDatetimeCode", "false");
+        config.addDataSourceProperty("serverTimezone", "UTC");
+        return config;
     }
 
     private void setupTables() {
