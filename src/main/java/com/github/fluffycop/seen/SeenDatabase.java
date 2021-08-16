@@ -105,7 +105,7 @@ public class SeenDatabase {
         });
     }
 
-    private static final long SHUTDOWN_TIMEOUT_SEC= 30;
+    private static final long SHUTDOWN_TIMEOUT_SEC = 30;
 
     public void shutdown() {
         this.pool.shutdown();
