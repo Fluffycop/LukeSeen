@@ -7,15 +7,11 @@ import org.bukkit.OfflinePlayer;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 
 public class SeenDatabase {
@@ -38,14 +34,24 @@ public class SeenDatabase {
         HikariConfig config = new HikariConfig();
         config.setPoolName("Lukeseen Connection Pool-1");
         config.setJdbcUrl(
-                "jdbc:mariadb://" + SeenConfig.get().getInfo().getAddress() + ":" + SeenConfig.get().getInfo().getPort() + "/" + SeenConfig.get().getInfo().getDatabase()
+                "jdbc:mysql://" + SeenConfig.get().getAddress() + ":" + SeenConfig.get().getPort() + "/" + SeenConfig.get().getDatabase() + "?useSSL=false"
         );
-        config.setUsername(SeenConfig.get().getInfo().getUsername());
-        config.setPassword(SeenConfig.get().getInfo().getPassword());
-        config.setDriverClassName("org.mariadb.jdbc.Driver");
+        config.setUsername(SeenConfig.get().getUsername());
+        config.setPassword(SeenConfig.get().getPassword());
+        config.setDriverClassName("com.mysql.cj.jdbc.Driver");
         config.setConnectionTestQuery("SELECT 1;");
         config.addDataSourceProperty("useLegacyDatetimeCode", "false");
         config.addDataSourceProperty("serverTimezone", "UTC");
+        config.setConnectionTimeout(10000);
+        config.setIdleTimeout(600000);
+        config.setMaxLifetime(1800000);
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(2);
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        config.addDataSourceProperty("cacheResultSetMetadata", "true");
+        config.addDataSourceProperty("elideSetAutoCommits", "true");
+        config.setInitializationFailTimeout(0);
         return config;
     }
 
@@ -65,31 +71,47 @@ public class SeenDatabase {
         }
     }
 
-    public @NonNull CompletableFuture<@Nullable LoginRecord> getLastLogin(@NonNull OfflinePlayer player) {
+    private final @NonNull Map<@NonNull String, @NonNull UUID> lookupCache = new ConcurrentHashMap<>();
+
+    public @NonNull CompletableFuture<@Nullable LoginRecord> getLastLogin(@NonNull String username) {
         return CompletableFuture.supplyAsync(() -> {
-            UUID uuid = player.getUniqueId();
-            String sql = "SELECT server,login_time,online " +
-                    "FROM lukeseen_logins " +
-                    "WHERE player_id=?;";
-            try (Connection conn = ds.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, uuid.toString());
-                ResultSet rs = stmt.executeQuery(); // the expected size of the set is 1
-                if (rs.next()) { // not empty
-                    return new LoginRecord(
-                            uuid,
-                            rs.getString(1),
-                            rs.getLong(2),
-                            rs.getBoolean(3)
-                    );
-                } else { // empty
-                    return null;
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Encountered an unexpected error while retrieving login information for player with UUID " + uuid + " from the database");
-                e.printStackTrace();
+            final UUID uuid;
+            if (lookupCache.containsKey(username)) {
+                uuid = lookupCache.get(username);
+            } else {
+                uuid = Bukkit.getOfflinePlayer(username).getUniqueId();
+                this.lookupCache.put(username, uuid);
+            }
+            return getLastLoginBlocking(uuid);
+        }, pool);
+    }
+
+    public @NonNull CompletableFuture<@Nullable LoginRecord> getLastLogin(@NonNull OfflinePlayer player) {
+        return CompletableFuture.supplyAsync(() -> getLastLoginBlocking(player.getUniqueId()), pool);
+    }
+
+    private @Nullable LoginRecord getLastLoginBlocking(@NonNull UUID uuid) {
+        String sql = "SELECT server,login_time,online " +
+                "FROM lukeseen_logins " +
+                "WHERE player_id=?;";
+        try (Connection conn = ds.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, uuid.toString());
+            ResultSet rs = stmt.executeQuery(); // the expected size of the set is 1
+            if (rs.next()) { // not empty
+                return new LoginRecord(
+                        uuid,
+                        rs.getString(1),
+                        rs.getLong(2),
+                        rs.getBoolean(3)
+                );
+            } else { // empty
                 return null;
             }
-        }, pool);
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Encountered an unexpected error while retrieving login information for player with UUID " + uuid + " from the database");
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public void setLastLogin(@NonNull LoginRecord record) {

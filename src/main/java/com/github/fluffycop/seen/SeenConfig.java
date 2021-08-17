@@ -21,40 +21,35 @@ class SeenConfig {
     @Comment("The size of the thread pool that will be executing database queries. For databases hosted on the same machine, you really only need 1 or 2.")
     private int threadPoolSize = 4;
 
-    @Comment("Standard database connection stuff.")
-    private @NonNull DatabaseInfo info = new DatabaseInfo();
+    private @NonNull String address = "localhost";
+    private @NonNull String port = "3306";
+    private @NonNull String username = "root";
+    private @NonNull String password = "";
+    private @NonNull String database = "database";
 
-    @ConfigSerializable
-    static class DatabaseInfo {
-        private @NonNull String address = "localhost";
-        private int port = 3306;
-        private @NonNull String username = "root";
-        private @NonNull String password = "";
-        private @NonNull String database = "database";
+    @NonNull
+    public String getDatabase() {
+        return database;
+    }
 
-        @NonNull
-        public String getDatabase() {
-            return database;
-        }
+    @NonNull
+    public String getAddress() {
+        return address;
+    }
 
-        @NonNull
-        public String getAddress() {
-            return address;
-        }
+    @NonNull
+    public String getPort() {
+        return port;
+    }
 
-        public int getPort() {
-            return port;
-        }
+    @NonNull
+    public String getUsername() {
+        return username;
+    }
 
-        @NonNull
-        public String getUsername() {
-            return username;
-        }
-
-        @NonNull
-        public String getPassword() {
-            return password;
-        }
+    @NonNull
+    public String getPassword() {
+        return password;
     }
 
     @NonNull
@@ -64,11 +59,6 @@ class SeenConfig {
 
     public int getThreadPoolSize() {
         return threadPoolSize;
-    }
-
-    @NonNull
-    public DatabaseInfo getInfo() {
-        return info;
     }
 
     // singleton stuff
@@ -110,5 +100,18 @@ class SeenConfig {
 
     public static void clear() {
         INSTANCE = null;
+    }
+
+    @Override
+    public String toString() {
+        return "SeenConfig{" +
+                "serverName='" + serverName + '\'' +
+                ", threadPoolSize=" + threadPoolSize +
+                ", address='" + address + '\'' +
+                ", port='" + port + '\'' +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                ", database='" + database + '\'' +
+                '}';
     }
 }

@@ -44,9 +44,23 @@ public class CmdSeen implements CommandExecutor {
         String targetUsername = args[0];
         OfflinePlayer player = Bukkit.getOfflinePlayerIfCached(targetUsername);
         if (player == null) { // either they've never joined or the cache doesn't contain them
-            interpretAndSend(null, targetUsername, audience);
-        } else if (!player.isOnline()) { // offline
-            plugin.getDatabase().getLastLogin(player)
+            audience.sendMessage(
+                    Component.text("We haven't seen ")
+                            .color(NamedTextColor.GRAY)
+                            .toBuilder()
+                            .append(
+                                    Component.text(targetUsername)
+                                            .color(NamedTextColor.GREEN),
+                                    Component.text(" in a while. Please wait a moment while we pull up their data...")
+                                            .color(NamedTextColor.GRAY)
+                            )
+            );
+            plugin.getDatabase()
+                    .getLastLogin(targetUsername)
+                    .thenAccept(record -> interpretAndSend(record, targetUsername, audience));
+        } else if (!player.isOnline()) { // offline but in the cache
+            plugin.getDatabase()
+                    .getLastLogin(player)
                     .thenAccept(record -> {
                         var r = record;
                         if (r == null || r.getLastLogin() < player.getLastSeen()) {
