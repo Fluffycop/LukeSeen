@@ -58,15 +58,23 @@ public class CmdSeen implements CommandExecutor {
             plugin.getDatabase()
                     .getLastLogin(targetUsername)
                     .thenAccept(record -> interpretAndSend(record, targetUsername, audience));
-        } else if (!player.isOnline()) { // offline but in the cache
+        } else if (!player.isOnline()) { // offline on this server but in the cache
             plugin.getDatabase()
                     .getLastLogin(player)
                     .thenAccept(record -> {
-                        var r = record;
-                        if (r == null || r.getLastLogin() < player.getLastSeen()) {
-                            r = new LoginRecord(player.getUniqueId(), SeenConfig.get().getServerName(), player.getLastSeen(), false);
+                        if (record == null) { // never joined other servers
+                            interpretAndSend(new LoginRecord(player.getUniqueId(), SeenConfig.get().getServerName(), player.getLastSeen(), false), targetUsername, audience);
+                        } else { // usercache has a record and db has a record
+                            if (record.isOnline() && !record.getServer().equals(SeenConfig.get().getServerName())) { // online but not on this server
+                                interpretAndSend(record, targetUsername, audience);
+                            } else { // offline on all servers, compare last seens and send most recent
+                                if (record.getLastLogin() > player.getLastSeen()) { // bigger timestamp means more recent
+                                    interpretAndSend(record, targetUsername, audience);
+                                } else {
+                                    interpretAndSend(new LoginRecord(player.getUniqueId(), SeenConfig.get().getServerName(), player.getLastSeen(), false), targetUsername, audience);
+                                }
+                            }
                         }
-                        interpretAndSend(r, targetUsername, audience);
                     });
         } else { // they're online
             interpretAndSend(new LoginRecord(player.getUniqueId(), SeenConfig.get().getServerName(), player.getLastLogin(), true), targetUsername, audience);
@@ -74,16 +82,18 @@ public class CmdSeen implements CommandExecutor {
         return true;
     }
 
-    private static String humanReadableFormat(Duration duration) {
-        return duration.withNanos(0)
-                .toString()
-                .substring(2)
-                .replaceAll("(\\d[HMS])(?!$)", "$1 ")
-                .toLowerCase();
+    private static String humanReadableFormat(@NonNull Duration d) {
+        long daysVal = d.toDaysPart();
+        String months = daysVal / 30 > 0 ? daysVal / 30 + "m " : "";
+        String days = daysVal % 30 > 0 ? daysVal % 30 + "d " : "";
+        String hours = d.toHoursPart() > 0 ? d.toHoursPart() + "h " : "";
+        String minutes = d.toMinutesPart() > 0 ? d.toMinutesPart() + "m " : "";
+        String seconds = d.toSecondsPart() > 0 ? d.toSecondsPart() + "s" : "";
+        return months + days + hours + minutes + seconds;
     }
 
     private static void interpretAndSend(@Nullable LoginRecord record, @NonNull String user, @NonNull Audience audience) {
-        if (record == null) {
+        if (record == null || record.getLastLogin() <= 1471558235000L) { // magic timestamp for 5 years ago
             audience.sendMessage(
                     Component.text(user)
                             .color(NamedTextColor.GREEN)
@@ -93,8 +103,7 @@ public class CmdSeen implements CommandExecutor {
                             )
             );
         } else {
-            var player = Bukkit.getOfflinePlayer(record.getUuid());
-            String duration = humanReadableFormat(Duration.of(System.currentTimeMillis() - player.getLastLogin(), ChronoUnit.MILLIS));
+            String duration = humanReadableFormat(Duration.of(System.currentTimeMillis() - record.getLastLogin(), ChronoUnit.MILLIS));
             if (record.isOnline()) {
                 audience.sendMessage(
                         Component.text(user)

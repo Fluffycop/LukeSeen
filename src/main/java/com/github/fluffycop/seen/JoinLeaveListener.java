@@ -2,6 +2,7 @@ package com.github.fluffycop.seen;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -15,7 +16,7 @@ public class JoinLeaveListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onJoin(PlayerLoginEvent event) {
         Player player = event.getPlayer();
         plugin.getDatabase().setLastLogin(
@@ -28,7 +29,7 @@ public class JoinLeaveListener implements Listener {
         );
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onLeave(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         plugin.getDatabase().setLastLogin(

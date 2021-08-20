@@ -33,8 +33,23 @@ public class SeenPlugin extends JavaPlugin {
     public void onDisable() {
         this.getCommand("seen").setExecutor(null);
         if(this.adventure != null) this.adventure.close();
+        savePlayers();
         if (this.database != null) this.database.shutdown();
         SeenConfig.clear();
+    }
+
+    private void savePlayers() {
+        var logout = System.currentTimeMillis();
+        Bukkit.getOnlinePlayers().forEach(p -> {
+            this.database.setLastLogin(
+                    new LoginRecord(
+                            p.getUniqueId(),
+                            SeenConfig.get().getServerName(),
+                            logout,
+                            false
+                    )
+            );
+        });
     }
 
     public SeenDatabase getDatabase() {
