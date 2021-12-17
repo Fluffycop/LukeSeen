@@ -142,7 +142,7 @@ public class SeenDatabase {
         this.pool.shutdown();
         try {
             boolean executedSuccessfully = this.pool.awaitTermination(SHUTDOWN_TIMEOUT_SEC, TimeUnit.SECONDS);
-            if (executedSuccessfully) {
+            if (!executedSuccessfully) {
                 this.plugin.getLogger().log(Level.WARNING, "Database thread pool took too long to finish tasks. Some last login/seen data may be lost.");
             }
         } catch (InterruptedException e) {
